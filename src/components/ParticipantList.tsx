@@ -27,7 +27,7 @@ const ParticipantList: React.FC<ParticipantListProps> = ({
   };
 
   return (
-    <Card className="w-full max-w-md p-6 bg-white shadow-lg">
+    <Card className="w-full p-6 bg-white shadow-lg">
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-bold mb-4">Participants</h2>
