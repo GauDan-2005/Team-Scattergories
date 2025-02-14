@@ -3,6 +3,15 @@ import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from "./ui/alert-dialog";
 import { Timer, Check, X, RefreshCw } from "lucide-react";
 
 interface Team {
@@ -10,9 +19,10 @@ interface Team {
   members: { name: string; isLeader: boolean }[];
   score: number;
   roundScores?: number[];
+  letterChangesLeft: number;
 }
 
-const ROUND_TIME = 120; // seconds
+const DEFAULT_ROUND_TIME = 120; // seconds
 const CATEGORIES = [
   // Tech Categories (50%)
   "Programming Languages",
@@ -55,22 +65,25 @@ const GameInterface: React.FC<GameInterfaceProps> = ({
       name: "Team 1",
       members: [{ name: "Player 1", isLeader: true }],
       score: 0,
+      letterChangesLeft: 3,
     },
   ],
   onUpdateScores = () => {},
 }) => {
   const [currentTeamIndex, setCurrentTeamIndex] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(ROUND_TIME);
+  const [roundTime, setRoundTime] = useState(DEFAULT_ROUND_TIME);
+  const [timeLeft, setTimeLeft] = useState(roundTime);
   const [isRoundActive, setIsRoundActive] = useState(false);
   const [currentLetter, setCurrentLetter] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>({});
   const [roundAnswers, setRoundAnswers] = useState<Record<string, string>>({});
   const [isPaused, setIsPaused] = useState(false);
+  const [showTimeUpAlert, setShowTimeUpAlert] = useState(false);
 
   const resetGame = () => {
     setCurrentTeamIndex(0);
-    setTimeLeft(ROUND_TIME);
+    setTimeLeft(roundTime);
     setIsRoundActive(false);
     setCurrentLetter("");
     setSelectedCategories([]);
@@ -96,7 +109,7 @@ const GameInterface: React.FC<GameInterfaceProps> = ({
     const shuffledCategories = [...CATEGORIES].sort(() => Math.random() - 0.5);
     setSelectedCategories(shuffledCategories.slice(0, 12));
 
-    setTimeLeft(ROUND_TIME);
+    setTimeLeft(roundTime);
     setIsRoundActive(true);
     setDraftAnswers({});
     setRoundAnswers({});
@@ -145,7 +158,7 @@ const GameInterface: React.FC<GameInterfaceProps> = ({
     setCurrentTeamIndex((currentTeamIndex + 1) % teams.length);
 
     // Reset for next team
-    setTimeLeft(ROUND_TIME);
+    setTimeLeft(roundTime);
     setIsRoundActive(false);
     setCurrentLetter("");
     setDraftAnswers({});
@@ -160,7 +173,8 @@ const GameInterface: React.FC<GameInterfaceProps> = ({
         setTimeLeft((prev) => prev - 1);
       }, 1000);
     } else if (timeLeft === 0 && isRoundActive) {
-      endRound();
+      setShowTimeUpAlert(true);
+      setIsRoundActive(false);
     }
     return () => clearInterval(timer);
   }, [isRoundActive, timeLeft, isPaused]);
@@ -169,6 +183,27 @@ const GameInterface: React.FC<GameInterfaceProps> = ({
 
   return (
     <div className="space-y-6">
+      <AlertDialog open={showTimeUpAlert} onOpenChange={setShowTimeUpAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Time's Up!</AlertDialogTitle>
+            <AlertDialogDescription>
+              {currentTeam.name}'s turn is over. They got{" "}
+              {Object.keys(roundAnswers).length} answers!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => {
+                setShowTimeUpAlert(false);
+                endRound();
+              }}
+            >
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {/* Teams Overview */}
       <Card className="w-full p-4 bg-white shadow-lg">
         <div className="flex flex-col space-y-4">
@@ -228,12 +263,20 @@ const GameInterface: React.FC<GameInterfaceProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    const newLetter =
-                      LETTERS[Math.floor(Math.random() * LETTERS.length)];
-                    setCurrentLetter(newLetter);
+                    if (currentTeam.letterChangesLeft > 0) {
+                      const newLetter =
+                        LETTERS[Math.floor(Math.random() * LETTERS.length)];
+                      setCurrentLetter(newLetter);
+
+                      // Update the team's letter changes left
+                      const updatedTeams = [...teams];
+                      updatedTeams[currentTeamIndex].letterChangesLeft--;
+                      onUpdateScores(updatedTeams);
+                    }
                   }}
+                  disabled={!currentTeam.letterChangesLeft}
                 >
-                  Change
+                  Change ({currentTeam.letterChangesLeft})
                 </Button>
               </div>
               <h2 className="text-4xl font-bold">{currentLetter || "?"}</h2>
@@ -246,9 +289,11 @@ const GameInterface: React.FC<GameInterfaceProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() =>
-                      setTimeLeft((prev) => Math.max(0, prev - 10))
-                    }
+                    onClick={() => {
+                      const newTime = Math.max(0, roundTime - 10);
+                      setRoundTime(newTime);
+                      setTimeLeft(newTime);
+                    }}
                     disabled={isRoundActive}
                   >
                     -
@@ -256,7 +301,11 @@ const GameInterface: React.FC<GameInterfaceProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setTimeLeft((prev) => prev + 10)}
+                    onClick={() => {
+                      const newTime = roundTime + 10;
+                      setRoundTime(newTime);
+                      setTimeLeft(newTime);
+                    }}
                     disabled={isRoundActive}
                   >
                     +

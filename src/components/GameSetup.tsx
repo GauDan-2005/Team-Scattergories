@@ -71,6 +71,7 @@ export const GameSetup: React.FC<GameSetupProps> = ({
         name: `Team ${i + 1}`,
         members: teamMembers,
         score: 0,
+        letterChangesLeft: 3,
       });
 
       currentIndex += teamSize;
